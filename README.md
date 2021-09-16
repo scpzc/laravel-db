@@ -1,2 +1,0 @@
-# laravel-db
-laravel-db
