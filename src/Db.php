@@ -30,8 +30,6 @@ class Db
 
     /**
      * 要操作的库
-     * author: panzhaochao
-     * date: 2019/5/21 21:00
      *
      * @param string $connectName
      *
@@ -66,6 +64,7 @@ class Db
     {
         return self::connect()->$method(...$args);
     }
+
 
 
 
