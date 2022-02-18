@@ -1,8 +1,6 @@
 <?php
 /**
  * 数据处理
- * author: panzhaochao
- * date: 2021/1/1 16:23
  */
 
 namespace Scpzc\LaravelDb;
@@ -12,7 +10,7 @@ namespace Scpzc\LaravelDb;
 class DbCore
 {
 
-    private $container = [   //要操作的容器数据
+    private $operateData = [   //要操作的数据
         'table'       => null,  //要查询的表
         'field'       => ' * ',   //查询的字段
         'where'       => '',    //查询条件
@@ -27,20 +25,38 @@ class DbCore
     private $sqlAndParams = []; //执行的SQL语句和参数
     private $transNum = 0; //事务嵌套次数
     private $db;  //数据库连接资源
+    private $debug = 0; //是否开启调试模式,如果开启将不运行，直接输出sql语句
 
     public function __construct($name)
     {
         $this->db  = \Illuminate\Support\Facades\DB::connection($name);
-        $this->resetData = $this->container;
+        $this->resetData = $this->operateData;
+    }
+
+
+    /**
+     * 开启调试模式
+     */
+    public function debug(){
+        $this->debug = 1;
         return $this;
     }
+
 
     /**
      * 重置参数
      */
     private function resetParams(){
-        $this->container = $this->resetData;
+        $this->operateData = $this->resetData;
         $this->params = [];
+    }
+
+
+    /**
+     * 异常处理
+     */
+    private function exception($throwable){
+
     }
 
 
@@ -51,7 +67,7 @@ class DbCore
      * @return $this
      */
     public function table($table){
-        $this->container['table'] = ' `'.$table.'` ';
+        $this->operateData['table'] = ' `'.$table.'` ';
         return $this;
     }
 
@@ -69,7 +85,7 @@ class DbCore
             $field = ' '.join(',',$field).' ';
         }
         $field = !empty($field) ? $field : '*';
-        $this->container['field'] = ' '.$field.' ';
+        $this->operateData['field'] = ' '.$field.' ';
         return $this;
     }
 
@@ -85,9 +101,9 @@ class DbCore
             foreach($orderBy as $key=>$val){
                 $sort[] = $key.' '.$val;
             }
-            $this->container['order_by'] = ' ORDER BY '.join(',',$sort).' ';
+            $this->operateData['order_by'] = ' ORDER BY '.join(',',$sort).' ';
         }elseif(is_string($orderBy)){
-            $this->container['order_by'] = ' ORDER BY '.$orderBy.' ';
+            $this->operateData['order_by'] = ' ORDER BY '.$orderBy.' ';
         }
         return $this;
     }
@@ -101,9 +117,9 @@ class DbCore
      */
     public function limit(int $offset = 0, int $limit = 0){
         if(!empty($offset) && empty($limit)){
-            $this->container['limit'] = ' LIMIT '.$offset;
+            $this->operateData['limit'] = ' LIMIT '.$offset;
         }else{
-            $this->container['limit'] = ' LIMIT '.$offset.','.$limit;
+            $this->operateData['limit'] = ' LIMIT '.$offset.','.$limit;
         }
         return $this;
     }
@@ -119,7 +135,7 @@ class DbCore
     public function where($where,$params = []){
         if(empty($where)) return $this;   //如果没有传where参数直接返回
         if(is_string($where)){   //字符串
-            $this->container['where'] = ' WHERE '.$where.' ';
+            $this->operateData['where'] = ' WHERE '.$where.' ';
             $this->params = array_merge($this->params,$params);
         }elseif(is_array($where)){  //数组
             $whereTemp = [];
@@ -129,7 +145,7 @@ class DbCore
                     $whereCount = count($whereItem);
                     if($whereCount == 3){
                         $sign = trim(strtoupper($whereItem[1]));
-                        if(in_array($sign,['IN','NOT IN'])){    //[['id','in',[1,2]]]
+                        if(in_array($sign,['IN','NOT IN'])){    //[['id','in',[1,2]]] 查询指定数据
                             if(!is_array($whereItem[2]))  throw new \Exception('in值应该传一个数组');
                             if(!empty($whereItem[2])){
                                 $keysTemp = array_keys($whereItem[2]);
@@ -137,7 +153,7 @@ class DbCore
                                 $inArr = array_map(function($v) use ($whereItem,$count) {return $whereItem[0].$count.'_'.$v;}, $keysTemp);
                                 $whereTemp[] = '`'.$whereItem[0].'` '.$sign.' (:'.join(',:',$inArr).')';
                                 $this->params = array_merge($this->params,array_combine($inArr,$valuesTemp));
-                            }else{
+                            }else{   //[['id','in',[]]]  没有就查不出数据
                                 $whereTemp[] = '`'.$whereItem[0].'` '.$sign.' ( null )';
                             }
                         }else{   //[['id','>','121']]等
@@ -159,7 +175,7 @@ class DbCore
                 $count++;
             }
             if(!empty($whereTemp)){
-                $this->container['where'] = ' WHERE '.join(' AND ',$whereTemp).' ';
+                $this->operateData['where'] = ' WHERE '.join(' AND ',$whereTemp).' ';
             }
         }
         return $this;
@@ -175,7 +191,7 @@ class DbCore
      * @return $this
      * @throws \Exception
      */
-    public function data($dataArray,$dataType){
+    private function data($dataArray,$dataType){
         if(empty($dataArray)){
             throw new \Exception('data参数不能为空');
         }
@@ -184,14 +200,14 @@ class DbCore
             foreach($dataArray as $dataKey=>$dataValue) {
                 $insertFields[] = $dataKey;
                 $this->params['data_'.$dataKey] = $dataValue;
-                $this->container['insert_data'] = ' ( `' . join('`,`', $insertFields) . '` ) VALUES (:data_' . join(',:data_', $insertFields) . ')';
+                $this->operateData['insert_data'] = ' ( `' . join('`,`', $insertFields) . '` ) VALUES (:data_' . join(',:data_', $insertFields) . ')';
             }
         }elseif($dataType == 2){ //修改
             $updateFields = [];
             foreach($dataArray as $dataKey=>$dataValue){
                 $updateFields[] = '`'.$dataKey.'` = :'.'data_'.$dataKey;  //要更新的字段
                 $this->params['data_'.$dataKey] = $dataValue;  //要更新的参数
-                $this->container['update_data'] = ' SET '.join(',',$updateFields);  //要更新的字段拼接成字符串
+                $this->operateData['update_data'] = ' SET '.join(',',$updateFields);  //要更新的字段拼接成字符串
             }
         }
         return $this;
@@ -227,9 +243,9 @@ class DbCore
     public function fetchRow($where = null, $params = [], $fields = ''){
         $this->selectOperate($where,$params,$fields,'fetchRow');
         $this->sqlAndParams[] = ['sql'=>$this->sql,'params'=>$this->params];
-        $result = $this->db->selectOne($this->sql,$this->params);
+        $result = $this->execute($this->sql,$this->params);
         $this->resetParams();
-        $result = $this->objectToArray($result);
+        $result = $this->objectToArray($result[0]??null);
         return $result;
     }
 
@@ -247,10 +263,43 @@ class DbCore
     public function fetchAll($where = null, $params = [], $fields = ''){
         $this->selectOperate($where,$params,$fields,'fetchAll');
         $this->sqlAndParams[] = ['sql'=>$this->sql,'params'=>$this->params];
-        $result = $this->execute($this->sql,$this->params);
+        $result = $this->execute($this->sql, $this->params);
         $this->resetParams();
         return (array)$result;
     }
+
+
+    /**
+     * 分页取出数据
+     * @param null $where
+     * @param array $params
+     * @param string $fields
+     * @param int $page 当前页码
+     * @param int $pageSize 每页的记录数
+     * @return array
+     */
+    public function fetchByPage($where = null, $params = [], $fields = '',$page = 1,$pageSize = 20){
+        $page = (int) $page;
+        $pageSize = (int) $pageSize;
+        if(empty($page)) $page = 1;
+        if(empty($pageSize)) $pageSize = 20;
+        $operateData = $this->operateData;
+        $runParams = $this->params;
+        $totalCount = $this->fetchOne($where,$params,'count(*)');
+        $this->operateData = $operateData;
+        $this->params = $runParams;
+        //使用原生查询
+        if(is_string($where) && strpos(strtoupper($where),'SELECT') !== false ) $where.= ' LIMIT '.($page-1)*$pageSize.','.$pageSize;
+        $list = $this->limit(($page-1)*$pageSize,$pageSize)->fetchAll($where,$params,$fields);
+        return [
+            'total_count' => $totalCount,  //总记录
+            'total_page'  => ceil($totalCount / $pageSize),  //总页数
+            'page'        => $page,   //当前页
+            'page_size'   => $pageSize,  //每页条数
+            'list'        => $list,  //查出的数据
+        ];
+    }
+
 
     /**
      * 获取总数，可以使用原生
@@ -264,9 +313,9 @@ class DbCore
     public function count($where = null,$params = []){
         $this->selectOperate($where,$params,null,'count');
         $this->sqlAndParams[] = ['sql'=>$this->sql,'params'=>$this->params];
-        $result = $this->db->selectOne($this->sql,$this->params);
+        $result = $this->execute($this->sql, $this->params);
         $this->resetParams();
-        $result = $this->objectToArray($result);
+        $result = $this->objectToArray($result[0]??null);
         $result = array_pop($result);
         return $result;
     }
@@ -285,6 +334,9 @@ class DbCore
      * @throws \Exception
      */
     private function selectOperate($where, $params, $fields, $selectType){
+        if($fields == 'count(*)'){
+            $where = preg_replace('#SELECT(.*?)FROM#is','SELECT count(*) FROM',$where);
+        }
         $sqlLower = '';
         if(is_string($where)) $sqlLower = trim(strtolower($where));  //如果是字符串转换一下
         //异常传值
@@ -307,11 +359,11 @@ class DbCore
             $this->where($where,$params);
             if(!empty($fields)) $this->field($fields);
             if($selectType == 'fetchAll'){
-                $this->sql = 'SELECT '.$this->container['field'].' FROM '.$this->container['table'].$this->container['where'].$this->container['order_by'].$this->container['limit'];
+                $this->sql = 'SELECT '.$this->operateData['field'].' FROM '.$this->operateData['table'].$this->operateData['where'].$this->operateData['order_by'].$this->operateData['limit'];
             }elseif($selectType == 'fetchRow'){
-                $this->sql = 'SELECT '.$this->container['field'].' FROM '.$this->container['table'].$this->container['where'].$this->container['order_by'].' LIMIT 1';
+                $this->sql = 'SELECT '.$this->operateData['field'].' FROM '.$this->operateData['table'].$this->operateData['where'].$this->operateData['order_by'].' LIMIT 1';
             }elseif($selectType == 'count'){
-                $this->sql = 'SELECT '.'count(*) FROM '.$this->container['table'].$this->container['where'].' LIMIT 1';
+                $this->sql = 'SELECT '.'count(*) FROM '.$this->operateData['table'].$this->operateData['where'].' LIMIT 1';
             }
         }
         return true;
@@ -330,12 +382,11 @@ class DbCore
     public function delete($where = null,$params = []){
         $this->where($where,$params);
         try{
-            $this->sql = 'DELETE FROM'.$this->container['table'].$this->container['where'];
+            $this->sql = 'DELETE FROM'.$this->operateData['table'].$this->operateData['where'];
             $this->sqlAndParams[] = ['sql'=>$this->sql,'params'=>$this->params];
-            $result = $this->execute($this->sql,$this->params);
+            $result = $this->execute($this->sql, $this->params);
         }catch(\Throwable $e){
-//            handle_exception($e);   //进行错误处理
-            report($e);   //写入日志文件
+            $this->exception($e);
             $result = 0;
         }
         $this->resetParams();
@@ -352,12 +403,11 @@ class DbCore
     public function insert($data = []){
         $this->data($data,1);
         try{
-            $this->sql = 'INSERT INTO'.$this->container['table'].$this->container['insert_data'];
+            $this->sql = 'INSERT INTO'.$this->operateData['table'].$this->operateData['insert_data'];
             $this->sqlAndParams[] = ['sql'=>$this->sql,'params'=>$this->params];
-            $result = $this->execute($this->sql,$this->params);
+            $result = $this->execute($this->sql, $this->params);
         }catch(\Throwable $e){
-//            handle_exception($e);   //进行错误处理
-            report($e);   //写入日志文件
+            $this->exception($e);
             $result = false;
         }
         $this->resetParams();
@@ -376,14 +426,13 @@ class DbCore
     public function update($data = [],$where = null, $params = []){
         $this->data($data,2);
         $this->where($where,$params);
-        if(empty($this->container['where'])) throw new \Exception('where条件不能为空');
+        if(empty($this->operateData['where'])) throw new \Exception('where条件不能为空');
         try{
-            $this->sql = 'UPDATE'.$this->container['table'].$this->container['update_data'].$this->container['where'];
+            $this->sql = 'UPDATE'.$this->operateData['table'].$this->operateData['update_data'].$this->operateData['where'];
             $this->sqlAndParams[] = ['sql'=>$this->sql,'params'=>$this->params];
             $result = $this->execute($this->sql,$this->params);
         }catch(\Throwable $e){
-//            handle_exception($e);   //进行错误处理
-            report($e);   //写入日志文件
+            $this->exception($e);
             $result = false;
         }
         $this->resetParams();
@@ -402,32 +451,36 @@ class DbCore
      */
     public function execute(string $sql = null, array $params = [])
     {
-        $sql = trim($sql);
-        $sqlArray = explode(' ', $sql);
-        switch (strtoupper(current($sqlArray))) {
-            case 'SELECT':
-                $result = $this->db->select($sql, $params);
-                $result = !empty($result) ? $this->objectToArray($result) :[];
-                break;
-            case 'SHOW':
-                $result = $this->db->select($sql, $params);
-                $result = !empty($result) ? $this->objectToArray($result) :[];
-                break;
-            case 'INSERT':
-                $this->db->insert($sql, $params);
-                $result = $this->db->getPdo()->lastInsertId();
-                break;
-            case 'UPDATE':
-                $result = $this->db->update($sql, $params);
-                break;
-            case 'DELETE':
-                $result = $this->db->delete($sql, $params);
-                break;
-            default:
-                $result = $this->db->statement($sql, $params);
-                break;
+        if($this->debug == 1){
+            var_dump($this->getSql());
+        }else {
+            $sql      = trim($sql);
+            $sqlArray = explode(' ', $sql);
+            switch (strtoupper(current($sqlArray))) {
+                case 'SELECT':
+                    $result = $this->db->select($sql, $params);
+                    $result = !empty($result) ? $this->objectToArray($result) : [];
+                    break;
+                case 'SHOW':
+                    $result = $this->db->select($sql, $params);
+                    $result = !empty($result) ? $this->objectToArray($result) : [];
+                    break;
+                case 'INSERT':
+                    $this->db->insert($sql, $params);
+                    $result = $this->db->getPdo()->lastInsertId();
+                    break;
+                case 'UPDATE':
+                    $result = $this->db->update($sql, $params);
+                    break;
+                case 'DELETE':
+                    $result = $this->db->delete($sql, $params);
+                    break;
+                default:
+                    $result = $this->db->statement($sql, $params);
+                    break;
+            }
+            return $result;
         }
-        return $result;
     }
 
 
