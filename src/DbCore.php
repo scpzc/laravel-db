@@ -56,7 +56,7 @@ class DbCore
      * 异常处理
      */
     private function exception($throwable){
-
+        throw new \Exception($throwable->getMessage());
     }
 
 
@@ -183,33 +183,51 @@ class DbCore
 
 
 
-
     /**
-     * 数据处理
+     * 插入数据处理
      * @param $dataArray    //要操作的数据
-     * @param $dataType   //数据类型1新增  2修改
      * @return $this
      * @throws \Exception
      */
-    private function data($dataArray,$dataType){
+    private function insertData($dataArray){
         if(empty($dataArray)){
             throw new \Exception('data参数不能为空');
         }
-        if($dataType == 1){  //新增
-            $insertFields = [];
-            foreach($dataArray as $dataKey=>$dataValue) {
-                $insertFields[] = $dataKey;
-                $this->params['data_'.$dataKey] = $dataValue;
-                $this->operateData['insert_data'] = ' ( `' . join('`,`', $insertFields) . '` ) VALUES (:data_' . join(',:data_', $insertFields) . ')';
+        $batchData = is_array($dataArray[0]??null)?$dataArray:[$dataArray];
+        $insertValues = [];
+        foreach($batchData as $dataKey1=>$data){
+            $dataKeys = [];
+            foreach($data as $dataKey2=>$dataValue) {
+                $dataKey = 'data_'.$dataKey1.'_'.$dataKey2;  //参数KEY
+                $dataKeys[] = ':'.$dataKey;   //绑定KEY
+                $this->params[$dataKey] = $dataValue;
             }
-        }elseif($dataType == 2){ //修改
-            $updateFields = [];
-            foreach($dataArray as $dataKey=>$dataValue){
-                $updateFields[] = '`'.$dataKey.'` = :'.'data_'.$dataKey;  //要更新的字段
-                $this->params['data_'.$dataKey] = $dataValue;  //要更新的参数
-                $this->operateData['update_data'] = ' SET '.join(',',$updateFields);  //要更新的字段拼接成字符串
-            }
+            $insertValues[] = '(' . join(',', $dataKeys) . ')';
         }
+        //插入的字段
+        $insertFields = array_keys($batchData[0]);
+        $this->operateData['insert_data'] = ' ( `' . join('`,`', $insertFields) . '` ) VALUES '.join(',',$insertValues);
+        return $this;
+    }
+
+
+
+    /**
+     * 更新的数据处理
+     * @param $dataArray    //要操作的数据
+     * @return $this
+     * @throws \Exception
+     */
+    private function updateData($dataArray){
+        if(empty($dataArray)){
+            throw new \Exception('data参数不能为空');
+        }
+        $updateFields = [];
+        foreach($dataArray as $dataKey=>$dataValue){
+            $updateFields[] = '`'.$dataKey.'` = :'.'data_'.$dataKey;  //要更新的字段
+            $this->params['data_'.$dataKey] = $dataValue;  //要更新的参数
+        }
+        $this->operateData['update_data'] = ' SET '.join(',',$updateFields);  //要更新的字段拼接成字符串
         return $this;
     }
 
@@ -401,7 +419,7 @@ class DbCore
      * @return int
      */
     public function insert($data = []){
-        $this->data($data,1);
+        $this->insertData($data);
         try{
             $this->sql = 'INSERT INTO'.$this->operateData['table'].$this->operateData['insert_data'];
             $this->sqlAndParams[] = ['sql'=>$this->sql,'params'=>$this->params];
@@ -424,7 +442,7 @@ class DbCore
      * @return int|mixed
      */
     public function update($data = [],$where = null, $params = []){
-        $this->data($data,2);
+        $this->updateData($data);
         $this->where($where,$params);
         if(empty($this->operateData['where'])) throw new \Exception('where条件不能为空');
         try{
@@ -466,8 +484,10 @@ class DbCore
                     $result = !empty($result) ? $this->objectToArray($result) : [];
                     break;
                 case 'INSERT':
-                    $this->db->insert($sql, $params);
-                    $result = $this->db->getPdo()->lastInsertId();
+                    //如果是批量插入，返回影响行数
+                    $result = $this->db->affectingStatement($sql, $params);
+                    //如果是插入一条，直接返回ID
+                    if($result == 1) $result = $this->db->getPdo()->lastInsertId();
                     break;
                 case 'UPDATE':
                     $result = $this->db->update($sql, $params);
