@@ -27,25 +27,10 @@ class DbCore
     private $sqlAndParams = []; //执行的SQL语句和参数
     private $transNum = 0; //事务嵌套次数
     private $db;  //数据库连接资源
-    private $connections = [];
 
-    public function __construct()
+    public function __construct($name)
     {
-        $this->connection();
-    }
-
-    /**
-     * 数据库连接
-     * @param null $name
-     * @return $this
-     */
-    public function connection($name = null){
-        $name = $name ?: config('database.default', 'mysql');
-        if (isset($this->connections[$name])) {
-            $this->db = $this->connections[$name];
-        }
         $this->db  = \Illuminate\Support\Facades\DB::connection($name);
-        $this->connections[$name] = $this->db;
         $this->resetData = $this->container;
         return $this;
     }
@@ -349,7 +334,7 @@ class DbCore
             $this->sqlAndParams[] = ['sql'=>$this->sql,'params'=>$this->params];
             $result = $this->execute($this->sql,$this->params);
         }catch(\Throwable $e){
-            handle_exception($e);   //进行错误处理
+//            handle_exception($e);   //进行错误处理
             report($e);   //写入日志文件
             $result = 0;
         }
@@ -371,7 +356,7 @@ class DbCore
             $this->sqlAndParams[] = ['sql'=>$this->sql,'params'=>$this->params];
             $result = $this->execute($this->sql,$this->params);
         }catch(\Throwable $e){
-            handle_exception($e);   //进行错误处理
+//            handle_exception($e);   //进行错误处理
             report($e);   //写入日志文件
             $result = false;
         }
@@ -397,7 +382,7 @@ class DbCore
             $this->sqlAndParams[] = ['sql'=>$this->sql,'params'=>$this->params];
             $result = $this->execute($this->sql,$this->params);
         }catch(\Throwable $e){
-            handle_exception($e);   //进行错误处理
+//            handle_exception($e);   //进行错误处理
             report($e);   //写入日志文件
             $result = false;
         }
