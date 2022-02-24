@@ -15,6 +15,7 @@ namespace Scpzc\LaravelDb;
  * @method static DbCore where($where,$params = [])  要操作的条件
  * @method static array fetchRow($where = [], $params = [], $fields = '') 查询一条记录，可以使用原生
  * @method static array fetchAll($where = [], $params = [], $fields = '') 查询符合条件的所有记录，可以使用原生
+ * @method static array fetchByPage($where = null, $params = [], $fields = '',$page = 1,$pageSize = 20) 分页查询，可以使用原生
  * @method static array fetchOne($where = [], $params = [], $fields = '') 获取单个值，可以使用原生
  * @method static mixed execute(string $sql = null, array $params = []) 执行原生SQL
  * @method static  startTrans() 开始事务

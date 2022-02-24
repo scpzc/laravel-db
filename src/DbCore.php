@@ -303,12 +303,12 @@ class DbCore
         if(empty($pageSize)) $pageSize = 20;
         $operateData = $this->operateData;
         $runParams = $this->params;
-        $totalCount = $this->fetchOne($where,$params,'count(*)');
+        $totalCount = $this->fetchOne($where,$params??[],'count(*)');
         $this->operateData = $operateData;
         $this->params = $runParams;
         //使用原生查询
         if(is_string($where) && strpos(strtoupper($where),'SELECT') !== false ) $where.= ' LIMIT '.($page-1)*$pageSize.','.$pageSize;
-        $list = $this->limit(($page-1)*$pageSize,$pageSize)->fetchAll($where,$params,$fields);
+        $list = $this->limit(($page-1)*$pageSize,$pageSize)->fetchAll($where,$params??[],$fields??'');
         return [
             'total_count' => $totalCount,  //总记录
             'total_page'  => ceil($totalCount / $pageSize),  //总页数
