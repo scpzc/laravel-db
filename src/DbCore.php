@@ -182,6 +182,27 @@ class DbCore
     }
 
 
+    /**
+     * 处理params针对 IN这种，传的是一个数组
+     * author: scpzc
+     * date: 2022/3/3 9:23
+     * @param $params
+     */
+    private function params($params){
+        foreach($params as $field => $paramItem){
+            if(is_array($paramItem)){
+                $tempKeys = [];
+                foreach($paramItem as $key=>$param){
+                    $tempKeys[] = ":".$field."_".$key;
+                    $params[$field."_".$key] = $param;
+                }
+                unset($params[$field]);
+                $this->sql = str_replace(":".$field,join(",",$tempKeys),$this->sql);
+            }
+        }
+        return $params;
+    }
+
 
     /**
      * 插入数据处理
@@ -371,7 +392,7 @@ class DbCore
                 strpos($sqlLower, 'show') === 0
             )) {
             $this->sql    = $where;
-            $this->params = $params;
+            $this->params = $this->params($params);
         }else{
             //sqlOrWhere是where条件如['id'=>1]、'id = :id'
             $this->where($where,$params);
@@ -512,6 +533,7 @@ class DbCore
         foreach($this->sqlAndParams as $key=>$item){
             $sqlAndParams = $item['sql'];
             if(!empty($item['params'])){
+                $item['params'] = array_reverse($item['params']);
                 foreach($item['params'] as $paramKey=>$paramValue){
                     $sqlAndParams = str_replace(':'.$paramKey,"'".$paramValue."'",$sqlAndParams);
                 }
