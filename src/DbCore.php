@@ -325,6 +325,8 @@ class DbCore
         $operateData = $this->operateData;
         $runParams = $this->params;
         $totalCount = $this->fetchOne($where,$params??[],'count(*)');
+        $totalPage = ceil($totalCount / $pageSize);
+        $page = max(min($totalPage,$page),1);
         $this->operateData = $operateData;
         $this->params = $runParams;
         //使用原生查询
@@ -332,7 +334,7 @@ class DbCore
         $list = $this->limit(($page-1)*$pageSize,$pageSize)->fetchAll($where,$params??[],$fields??'');
         return [
             'total_count' => $totalCount,  //总记录
-            'total_page'  => ceil($totalCount / $pageSize),  //总页数
+            'total_page'  => $totalPage,  //总页数
             'page'        => $page,   //当前页
             'page_size'   => $pageSize,  //每页条数
             'list'        => $list,  //查出的数据
