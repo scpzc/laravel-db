@@ -262,6 +262,9 @@ class DbCore
         do{
             $operateData = $this->operateData;
             $runParams = $this->params;
+            if(empty($operateData['order_by'])){
+                throw new \Exception('请先使用order排序');
+            }
             $result = $this->fetchByPage(null,null,null,$page,$pageSize);
             $resultCount = count($result['list']);
             if(empty($resultCount)) break;
