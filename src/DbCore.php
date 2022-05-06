@@ -252,6 +252,26 @@ class DbCore
         return $this;
     }
 
+    /**
+     * 分页获取数据
+     * @param $pageSize  //每页取的条数
+     * @param callable $callback  //回调
+     */
+    public function chunk($pageSize, callable $callback){
+        $page = 1;
+        do{
+            $operateData = $this->operateData;
+            $runParams = $this->params;
+            $result = $this->fetchByPage(null,null,null,$page,$pageSize);
+            $resultCount = count($result['list']);
+            if(empty($resultCount)) break;
+            $callback($result['list'],$result['page']);
+            unset($result);
+            $page++;
+            $this->operateData = $operateData;
+            $this->params = $runParams;
+        }while($resultCount == $pageSize);
+    }
 
     /**
      * 获取单个值，可以使用原生
