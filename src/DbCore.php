@@ -274,6 +274,7 @@ class DbCore
             $this->operateData = $operateData;
             $this->params = $runParams;
         }while($resultCount == $pageSize);
+        $this->resetParams();
     }
 
     /**
