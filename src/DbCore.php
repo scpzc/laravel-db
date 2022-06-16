@@ -418,7 +418,7 @@ class DbCore
                 strpos($sqlLower, 'show') === 0
             )) {
             $this->sql    = $where;
-            $this->params = $this->params($params);
+            $this->params = $params;
         }else{
             //sqlOrWhere是where条件如['id'=>1]、'id = :id'
             $this->where($where,$params);
@@ -431,6 +431,7 @@ class DbCore
                 $this->sql = 'SELECT '.'count(*) FROM '.$this->operateData['table'].$this->operateData['where'].' LIMIT 1';
             }
         }
+        $this->params = $this->params($this->params);
         return true;
     }
 
