@@ -350,7 +350,7 @@ class DbCore
         $runParams = $this->params;
         $totalCount = $this->fetchOne($where,$params??[],'count(*)');
         $totalPage = ceil($totalCount / $pageSize);
-        $page = max(min($totalPage,$page),1);
+        $page = max($page,1);
         $this->operateData = $operateData;
         $this->params = $runParams;
         //使用原生查询
