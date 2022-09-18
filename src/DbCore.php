@@ -184,13 +184,11 @@ class DbCore
 
     /**
      * 处理params针对 IN这种，传的是一个数组
-     * author: scpzc
-     * date: 2022/3/3 9:23
      * @param $params
      */
     private function params($params){
         foreach($params as $field => $paramItem){
-            if(is_array($paramItem)){
+            if(is_array($paramItem) && !empty($paramItem)){ //有值的数组
                 $tempKeys = [];
                 foreach($paramItem as $key=>$param){
                     $tempKeys[] = ":".$field."_".$key;
@@ -198,6 +196,8 @@ class DbCore
                 }
                 unset($params[$field]);
                 $this->sql = str_replace(":".$field,join(",",$tempKeys),$this->sql);
+            }elseif(is_array($paramItem) && empty($paramItem)){   //空数组
+                $params[$field] = null;
             }
         }
         return $params;
