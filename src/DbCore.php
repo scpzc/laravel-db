@@ -348,7 +348,7 @@ class DbCore
         if(empty($pageSize)) $pageSize = 20;
         $operateData = $this->operateData;
         $runParams = $this->params;
-        $totalCount = $this->fetchOne($where,$params??[],'count(*)');
+        $totalCount = $this->count($where,$params??[]);
         $totalPage = ceil($totalCount / $pageSize);
         $page = max($page,1);
         $this->operateData = $operateData;
@@ -399,9 +399,6 @@ class DbCore
      * @throws \Exception
      */
     private function selectOperate($where, $params, $fields, $selectType){
-        if($fields == 'count(*)' && is_string($where)){
-            $where = preg_replace('#SELECT(.*?)FROM#is','SELECT count(*) FROM',$where);
-        }
         $sqlLower = '';
         if(is_string($where)) $sqlLower = trim(strtolower($where));  //如果是字符串转换一下
         //异常传值
@@ -417,6 +414,9 @@ class DbCore
                 strpos($sqlLower, 'select') === 0 ||
                 strpos($sqlLower, 'show') === 0
             )) {
+            if($selectType == "count"){
+                $where = 'SELECT count(*) FROM ('.$where.') as aa';
+            }
             $this->sql    = $where;
             $this->params = $params;
         }else{
@@ -428,7 +428,7 @@ class DbCore
             }elseif($selectType == 'fetchRow'){
                 $this->sql = 'SELECT '.$this->operateData['field'].' FROM '.$this->operateData['table'].$this->operateData['where'].$this->operateData['order_by'].' LIMIT 1';
             }elseif($selectType == 'count'){
-                $this->sql = 'SELECT '.'count(*) FROM '.$this->operateData['table'].$this->operateData['where'].' LIMIT 1';
+                $this->sql = 'SELECT count(*) FROM (SELECT '.$this->operateData['field'].' FROM '.$this->operateData['table'].$this->operateData['where'].") as aa";
             }
         }
         $this->params = $this->params($this->params);
