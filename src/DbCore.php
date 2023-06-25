@@ -380,7 +380,7 @@ class DbCore
         $this->sqlAndParams[] = ['sql'=>$this->sql,'params'=>$this->params];
         $result = $this->execute($this->sql, $this->params);
         $this->resetParams();
-        $result = $this->objectToArray($result[0]??null);
+        $result = $this->objectToArray($result[0]??[]);
         $result = array_pop($result);
         return $result;
     }
